@@ -2,7 +2,7 @@
 import sys
 from onvif import ONVIFCamera
 from time import sleep
-from time import time
+import time
 
 import pygame
 
@@ -118,7 +118,11 @@ class ptzControl(object):
         self.requesta.Position.PanTilt.x = pan
         self.requesta.Position.PanTilt.y = tilt
         self.requesta.Position.Zoom.x = zoom
+        self.requesta.Speed.PanTilt.x = 1.0
+        self.requesta.Speed.PanTilt.y = 1.0
+        self.ptz.Stop({'ProfileToken': self.media_profile.token})  # Stop any ongoing movement
         self.ptz.AbsoluteMove(self.requesta)
+        time.sleep(1)  # Wait for the move to complete
 
     def zoom(self, velocity):
         self.requestc.Velocity.Zoom.x = velocity
@@ -129,9 +133,12 @@ class ptzControl(object):
     def move_abspantilt(self, pan, tilt, velocity):
         self.requesta.Position.PanTilt.x = pan
         self.requesta.Position.PanTilt.y = tilt
+        print(self.requesta)
         #self.requesta.Speed.PanTilt.x = velocity
         #self.requesta.Speed.PanTilt.y = velocity
+        self.ptz.Stop({'ProfileToken': self.media_profile.token})  # Stop any ongoing movement
         ret = self.ptz.AbsoluteMove(self.requesta)
+        time.sleep(0.1)
 
     # Relative move functions --NO ERRORS BUT CAMERA DOES NOT MOVE
     def move_relative(self, pan, tilt, velocity):
@@ -177,31 +184,43 @@ if __name__ == '__main__':
     pygame.init()
     pygame.display.set_mode((100, 100))  # Initialize a small window for keyboard events
 
-    ptz.move_abspantilt(pan = 0.5, tilt = 0.0, velocity=0.5)
-    sleep(2)
+    com_pan = 0.0
+    com_tilt = 0.0
+    com_zoom = 0.0
 
-    # Example usage
+    #ptz.move_to_absolute(pan=-1.0, tilt=-0.75, zoom=0.5)
+    #time.sleep(2)  # Wait for the move to complete
+    #ptz.move_to_absolute(pan=1.0, tilt=0.75, zoom=1.0)  # Reset to initial position
+    #time.sleep(2)  # Wait for the move to complete
+        # # Example usage
+    
     pan_speed = 0.0
     tilt_speed = 0.0
+    increment = 0.001
     while True:
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_UP:
                     print("Camera Up")
-                    tilt_speed += -0.05
+                    tilt_speed += -increment
+                    com_tilt += -increment
                 elif event.key == pygame.K_DOWN:
                     print("Camera Down")
-                    tilt_speed += 0.05
+                    tilt_speed += increment
+                    com_tilt += increment
                 elif event.key == pygame.K_LEFT:
                     print("Camera Left")
-                    pan_speed += -0.05
+                    pan_speed += -increment
+                    com_pan += -increment
                 elif event.key == pygame.K_RIGHT:
                     print("Camera Right")
-                    pan_speed += 0.05
+                    pan_speed += increment
+                    com_pan += increment
                 elif event.key == pygame.K_q:
                     print("Exiting...")
                     break
-        ptz.move_continuous(pan=pan_speed, tilt=tilt_speed)
+        ptz.move_to_absolute(com_pan, com_tilt, com_zoom)
+        #ptz.move_continuous(pan=pan_speed, tilt=tilt_speed)
         print('state: ',ptz.get_state())
 
     # start_time = time()

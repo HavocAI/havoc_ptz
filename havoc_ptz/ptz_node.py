@@ -95,14 +95,16 @@ class PTZNode(Node):
         #Tilt: 1 = -30, 0 = 30, -1 = 90 degrees
         #Zoom: 0-1
 
-        tilt_factor = 0.016666666 #(2/120 deg)
-
+        #Rescale the theta angle to match the pelco pan range
+        #Assuming 0 is north for now and 180 is south and max is 360 degrees
         ptz_pan = 0.0
-        if theta < -180.0:
-            pan = -1.0
-        elif theta > 180.0:
-            pan = 1.0
+        
+        if theta > 180.0:
+            ptz_pan = ((theta-360.0)/180.0)
+        elif theta <= 180.0:
+            ptz_pan = (theta / 180.0)s
 
+        #Rescale the phi angle to match the pelco tilt range
         ptz_tilt = 0.0
         if phi < -30.0:
             tilt = 1.0
@@ -115,6 +117,11 @@ class PTZNode(Node):
             elif phi > 30.0:
                 angle = phi - 30.0
                 tilt = -1.0 * (angle / 60.0)
+        ptz_tilt = tilt
+
+        #Now we need to set the camera to that pan and tilt
+        self.ptz.move_to_absolute(ptz_pan, ptz_tilt, 1.0)
+
 
         return pan, tilt, zoom
 
