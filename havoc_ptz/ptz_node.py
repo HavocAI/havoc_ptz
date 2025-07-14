@@ -87,6 +87,38 @@ class PTZNode(Node):
         #pan should match theta angle 
         #tilt needs to be adjusted so that the camera is level with the horizon
         #Zoom doesnt matter yet
+        return 
+
+
+    def angle_to_ptz_frame(self, theta, phi):
+        #Pan: 0 = 0 degrees, 1 = 180 degrees, -1 = -180 degrees 
+        #Tilt: 1 = -30, 0 = 30, -1 = 90 degrees
+        #Zoom: 0-1
+
+        tilt_factor = 0.016666666 #(2/120 deg)
+
+        ptz_pan = 0.0
+        if theta < -180.0:
+            pan = -1.0
+        elif theta > 180.0:
+            pan = 1.0
+
+        ptz_tilt = 0.0
+        if phi < -30.0:
+            tilt = 1.0
+        elif phi > 90.0:
+            tilt = -1.0
+        else:
+            if phi <= 30.0:
+                angle = phi - 30.00
+                tilt = -1.0 * (angle / 60.0) 
+            elif phi > 30.0:
+                angle = phi - 30.0
+                tilt = -1.0 * (angle / 60.0)
+
+        return pan, tilt, zoom
+
+        return None
 
 
     def update_loop(self):
