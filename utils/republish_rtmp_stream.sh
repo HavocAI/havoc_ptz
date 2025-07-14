@@ -46,7 +46,8 @@ do
     -v error \
     -rtsp_transport tcp \
     -i "$SOURCE_URL" \
-    -c:v copy \
+    -vf "transpose=2,transpose=2" \
+    -c:v libx264 \
     -c:a copy \
     -f flv \
     "$DESTINATION_URL"
