@@ -4,6 +4,9 @@ from onvif import ONVIFCamera
 from time import sleep
 import time
 
+from sensor_msgs.msg import NavSatFix
+from geometry_msgs.msg import PoseStamped
+
 import pygame
 
 #import keyboard
@@ -79,6 +82,10 @@ class ptzControl(object):
         self.requestg.ProfileToken = self.media_profile.token
         self.stop()
 
+        #Track a target initializations
+        self.camera_position = [0.0,0.0,0.0] #(lat, lon, alt)
+        self.target_position = [0.0,0.0,0.0] #(lat, lon, alt)
+
     def get_state(self):
         """Return the current state of the PTZ control."""
         status = self.ptz.GetStatus({'ProfileToken': self.media_profile.token})   
@@ -122,7 +129,7 @@ class ptzControl(object):
         self.requesta.Speed.PanTilt.y = 1.0
         self.ptz.Stop({'ProfileToken': self.media_profile.token})  # Stop any ongoing movement
         self.ptz.AbsoluteMove(self.requesta)
-        time.sleep(1)  # Wait for the move to complete
+        time.sleep(0.5)  # Wait for the move to complete
 
     def zoom(self, velocity):
         self.requestc.Velocity.Zoom.x = velocity
@@ -173,69 +180,137 @@ class ptzControl(object):
         self.requestg.PresetToken = '1'
         self.ptz.GotoPreset(self.requestg)
 
+    def geodetic_to_ecef(lat, lon, alt):
+        # WGS84 ellipsoid constants:
+        a = 6378137.0          # semi-major axis
+        e2 = 6.69437999014e-3  # first eccentricity squared
 
-if __name__ == '__main__':
-    IP = "192.168.1.42"  # Camera IP address
-    PORT = 80  # Port
-    USER = "havoc-ptz1"  # Username
-    PASS = "1nspectR"  # Password
-    ptz = ptzControl(IP, PORT, USER, PASS)
+        lat = np.radians(lat)
+        lon = np.radians(lon)
+
+        N = a / np.sqrt(1 - e2 * np.sin(lat)**2)
+
+        x = (N + alt) * np.cos(lat) * np.cos(lon)
+        y = (N + alt) * np.cos(lat) * np.sin(lon)
+        z = (N * (1 - e2) + alt) * np.sin(lat)
+
+        return np.array([x, y, z])
+
+
+    def enu_vector_to_relative_bearing(boat_pos, target_pos, boat_heading_deg):
+        """
+        Returns the angle (degrees) from the boat heading to the target direction in the ENU plane.
+        Positive = target is to the right (starboard), negative = left (port).
+        0 = target is straight ahead of the boat heading.
+        """
+        # Compute ENU vector from boat to target
+        p_boat = geodetic_to_ecef(*boat_pos)
+        p_target = geodetic_to_ecef(*target_pos)
+        vec = p_target - p_boat
+        lat0, lon0, _ = boat_pos
+        lat0 = np.radians(lat0)
+        lon0 = np.radians(lon0)
+        east = np.array([-np.sin(lon0), np.cos(lon0), 0])
+        north = np.array([-np.sin(lat0)*np.cos(lon0), -np.sin(lat0)*np.sin(lon0), np.cos(lat0)])
+        e = np.dot(vec, east)
+        n = np.dot(vec, north)
+        # Angle of target vector in ENU (0 = North, increases clockwise)
+        target_angle = np.degrees(np.arctan2(e, n)) % 360
+        # Relative angle to boat heading
+        rel_angle = (target_angle - boat_heading_deg + 180) % 360 - 180
+        return rel_angle
+
+
+    def compute_tilt_angle(boat_pos, target_pos, boat_pitch_deg):
+        """
+        Computes the tilt angle required to point at the target from the boat, compensating for the boat's pitch.
+        - boat_pos: (lat, lon, alt) of the boat
+        - target_pos: (lat, lon, alt) of the target
+        - boat_pitch_deg: pitch of the boat in degrees (positive = bow up, negative = bow down)
+
+        Returns:
+        - tilt angle in degrees (positive = up, negative = down)
+        """
+        # Extract altitude differences
+        alt_diff = target_pos[2] - boat_pos[2]
+
+        # Compute ENU vector from boat to target
+        p_boat = geodetic_to_ecef(*boat_pos)
+        p_target = geodetic_to_ecef(*target_pos)
+        vec = p_target - p_boat
+
+        # Horizontal distance in EN plane
+        lat0, lon0, _ = boat_pos
+        lat0 = np.radians(lat0)
+        lon0 = np.radians(lon0)
+        east = np.array([-np.sin(lon0), np.cos(lon0), 0])
+        north = np.array([-np.sin(lat0)*np.cos(lon0), -np.sin(lat0)*np.sin(lon0), np.cos(lat0)])
+        e = np.dot(vec, east)
+        n = np.dot(vec, north)
+        horiz_dist = np.linalg.norm([e, n])
+
+        
+        # Elevation angle (from local horizontal up to target)
+        elevation = np.degrees(np.arctan2(alt_diff, horiz_dist))
+
+        # Compensate for boat pitch
+        tilt_angle = elevation - boat_pitch_deg
+        print(horiz_dist, alt_diff,elevation, boat_pitch_deg, tilt_angle)
+        return tilt_angle
     
-    pygame.init()
-    pygame.display.set_mode((100, 100))  # Initialize a small window for keyboard events
 
-    com_pan = 0.0
-    com_tilt = 0.0
-    com_zoom = 0.0
+    def pan_tilt_zoom_angle_to_ptz_frame(pan_deg, tilt_deg, zoom_percent):
+        #Pan: 0 = 0 degrees, 1 = 180 degrees, -1 = -180 degrees 
+        #Tilt: 1 = -30, 0 = 30, -1 = 90 degrees
+        #Zoom: 0-1
 
-    #ptz.move_to_absolute(pan=-1.0, tilt=-0.75, zoom=0.5)
-    #time.sleep(2)  # Wait for the move to complete
-    #ptz.move_to_absolute(pan=1.0, tilt=0.75, zoom=1.0)  # Reset to initial position
-    #time.sleep(2)  # Wait for the move to complete
-        # # Example usage
-    
-    pan_speed = 0.0
-    tilt_speed = 0.0
-    increment = 0.001
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP:
-                    print("Camera Up")
-                    tilt_speed += -increment
-                    com_tilt += -increment
-                elif event.key == pygame.K_DOWN:
-                    print("Camera Down")
-                    tilt_speed += increment
-                    com_tilt += increment
-                elif event.key == pygame.K_LEFT:
-                    print("Camera Left")
-                    pan_speed += -increment
-                    com_pan += -increment
-                elif event.key == pygame.K_RIGHT:
-                    print("Camera Right")
-                    pan_speed += increment
-                    com_pan += increment
-                elif event.key == pygame.K_q:
-                    print("Exiting...")
-                    break
-        ptz.move_to_absolute(com_pan, com_tilt, com_zoom)
-        #ptz.move_continuous(pan=pan_speed, tilt=tilt_speed)
-        print('state: ',ptz.get_state())
+        #Rescale the pan_deg angle to match the pelco pan range
+        #Assuming 0 is north for now and 180 is south and max is 360 degrees in pelco world
+        ptz_pan = 0.0
+        ptz_tilt = 0.0
+        
+        if pan_deg > 180.0:
+            ptz_pan = ((pan_deg-360.0)/180.0)
+        elif pan_deg <= 180.0:
+            ptz_pan = (pan_deg / 180.0)
 
-    # start_time = time()
-    # for i in  range(0,100):
-    #     cur_time = time()
-    #     #if i % 2 == 0:
-    #     ptz.move_continuous(pan=-0.2, tilt=-0.1)
-    #     #else:
-    #     #    ptz.move_continuous(pan=-0.1, tilt=-0.1)
-    #     print('time:',cur_time,'   status:',ptz.get_state())
-    # print(f"Elapsed time: {time() - start_time:.2f} seconds")
-    # print('cycle time:', (time() - start_time) / 100)
-    #ptz.move_continuous(pan=0.5, tilt=-0.4)  # Move pan and tilt
-    #ptz.zoom_relative(0.5, 0.4)
-    #sleep(2)  # Wait for the zoom to complete
-    ptz.stop()  # Stop any ongoing movement
-    print("PTZ control test completed.")
-    pygame.quit()
+        #Rescale the tilt_deg angle to match the pelco tilt range
+        if tilt_deg < -30.0:
+            tilt = 1.0
+        elif tilt_deg > 90.0:
+            tilt_deg = -1.0
+        else:
+            if tilt_deg <= 30.0:
+                angle = tilt_deg - 30.00
+                tilt = -1.0 * (angle / 60.0) 
+            elif tilt_deg > 30.0:
+                angle = tilt_deg - 30.0
+                tilt = -1.0 * (angle / 60.0)
+        ptz_tilt = tilt
+
+        ptz_zoom = (zoom_percent/100.0)
+
+        #clip numbers to valid ranges
+        ptz_pan = max(-1.0, min(1.0, ptz_pan))
+        ptz_tilt = max(-1.0, min(1.0, ptz_tilt))
+        ptz_zoom = max(0.0, min(1.0, ptz_zoom)) 
+
+        return ptz_pan, ptz_tilt, ptz_zoom
+
+    def track_target(self, target_position, boat_position, boat_heading_deg, boat_pitch_deg, zoom_percent=0.0):
+        """
+        Track a target by calculating the required pan and tilt angles based on the target's position
+        relative to the camera's position and the boat's heading and pitch. Heading is degrees off north, 
+        and pitch is degrees off level). Can update camera commands at ~2hz max.
+        """
+        # Calculate relative bearing to target
+        pan_angle = self.enu_vector_to_relative_bearing(boat_position, target_position, boat_heading_deg)
+        
+        # Calculate tilt angle to target
+        tilt_angle = self.compute_tilt_angle(boat_position, target_position, boat_pitch_deg)
+
+        ptz_pan, ptz_tilt, ptz_zoom = self.pan_tilt_zoom_angle_to_ptz_frame(pan_angle, tilt_angle, zoom_percent)  # Assuming zoom at 100%
+        
+        self.move_to_absolute(ptz_pan, ptz_tilt, ptz_zoom)
+
+        return {ptz_pan, ptz_tilt, ptz_zoom, pan_angle, tilt_angle}
