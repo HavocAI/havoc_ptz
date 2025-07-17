@@ -1,154 +1,69 @@
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Vector3,PoseStamped
-from sensor_msgs.msg import NavSatFix
-from scipy.spatial.transform import Rotation as R
-from std_msgs.msg import String
-from havoc_ptz.msg import CameraState
-import tf2_ros
+from geometry_msgs.msg import Vector3
+from sensor_msgs.msg import NavSatFix, Pose
 import numpy as np
-from builtin_interfaces.msg import Time
-from havoc_ptz.viz_vectors import compute_vector_spherical
-from havoc_ptz.move import ptzControl
+from havoc_ptz.ptz_controller import ptzControl
 
 class PTZNode(Node):
     def __init__(self):
         super().__init__('ptz_node')
         self.ptz = ptzControl('192.168.1.42', 80, 'havoc-ptz1', '1nspectR')
-        self.origin = (45.03078, -83.40361, 0.0)
-        self.rampage_orientation_vector = (0.0,0.0,0.0)    #theta, phi, r
-        self.target = None
-        self.target_velocity = None
-        self.ptz_state = Vector3()
-        self.ptz_state.x = 0.0
-        self.ptz_state.y = 0.0
-        self.ptz_state.z = 1.0
-        self.direct_commands_active = False
-        self.tf_buffer = tf2_ros.Buffer()
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
+        self.boat_position = (0.0, 0.0, 0.0)  # (lat, lon, alt)
+        self.boat_heading = 0.0  # degrees
+        self.boat_pitch = 0.0  # degrees
+        self.target_position = None  # (lat, lon, alt)
 
-        self.create_subscription(Vector3, '/havoc/abs_ptz_cmd', self.cmd_callback, 10)
-        # /havoc/ptz_cmd Vector3 here is desired pan, tilt, zoom values
+        # Subscriptions
         self.create_subscription(Vector3, '/havoc/ptz_target_position', self.target_callback, 10)
-        self.create_subscription(Vector3, '/havoc/ptz_target_velocity', self.velocity_callback, 10)
+        self.create_subscription(NavSatFix, '/mavros/global_position/global', self.boat_position_callback, 10)
+        self.create_subscription(Pose, '/mavros/local_position/pose', self.boat_orientation_callback, 10)
 
-        #subscribe to own ship data to correct for own ship position and motion
-        self.create_subscription(NavSatFix, '/mavros/global_position/global', self.local_position_callback, 10)
-        self.create_subscription(Pose, '/mavros/local_position/pose', self.local_orientation_callback, 10)
-
-        self.state_pub = self.create_publisher(Vector3, '/havoc/ptz_state', 10)
-        #Vector here is: pan, tilt, zoom
-        self.timer = self.create_timer(0.1, self.update_loop)  # 10 Hz
-    
-    def cmd_callback(self, msg):
-        self.direct_commands_active = True
-        self.ptz.move_to_absolute(msg.x, msg.y, msg.z)
+        # Timer for periodic updates
+        self.timer = self.create_timer(0.5, self.update_loop)  # 2 Hz
 
     def target_callback(self, msg):
-        self.direct_commands_active = False
-        self.target = np.array([msg.vector.x, msg.vector.y, msg.vector.z])
+        self.target_position = (msg.x, msg.y, msg.z)
 
-    def velocity_callback(self, msg):
-        self.target_velocity = np.array([msg.vector.x, msg.vector.y, msg.vector.z])
+    def boat_position_callback(self, msg):
+        self.boat_position = (msg.latitude, msg.longitude, msg.altitude)
 
-    def local_position_callback(self, msg):
-        # Convert GPS position to ECEF coordinates
-        self.origin = (msg.latitude, msg.longitude, 0.0)
+    def boat_orientation_callback(self, msg):
+        # Convert quaternion to heading and pitch
+        q = msg.orientation
+        heading, pitch, _ = self.quaternion_to_euler(q.x, q.y, q.z, q.w)
+        self.boat_heading = np.degrees(heading)
+        self.boat_pitch = np.degrees(pitch)
 
-    def local_orientation_callback(self, msg):
-        # Convert quaternion to spherical coordinates
-        theta, phi, r = self.quaternion_to_spherical(msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w)
-        self.rampage_orientation_vector = (theta, phi, r)
+    def quaternion_to_euler(self, x, y, z, w):
+        # Convert quaternion to Euler angles (heading, pitch, roll)
+        t0 = +2.0 * (w * x + y * z)
+        t1 = +1.0 - 2.0 * (x * x + y * y)
+        roll = np.arctan2(t0, t1)
 
-    def update_state(self):
-        # Update the PTZ state based on current pan, tilt, zoom
-        state = self.ptz.get_state
-        self.ptz_state.x = state['pan']
-        self.ptz_state.y = state['tilt']
-        self.ptz_state.z = state['zoom']
-        return self.ptz_state
+        t2 = +2.0 * (w * y - z * x)
+        t2 = +1.0 if t2 > +1.0 else t2
+        t2 = -1.0 if t2 < -1.0 else t2
+        pitch = np.arcsin(t2)
 
-    def quaternion_to_spherical(x, y, z, w):
-        # Convert quaternion to rotation matrix
-        r = R.from_quat([x, y, z, w])
-        
-        # Rotate the forward vector (0, 0, 1)
-        vec = r.apply([0, 0, 1])
-        vx, vy, vz = vec
+        t3 = +2.0 * (w * z + x * y)
+        t4 = +1.0 - 2.0 * (y * y + z * z)
+        yaw = np.arctan2(t3, t4)
 
-        # Convert to spherical coordinates
-        r_mag = np.linalg.norm(vec)
-        theta = np.arccos(vz / r_mag)         # inclination from z-axis
-        phi = np.arctan2(vy, vx)              # azimuth from x-axis in x-y plane
-
-        return theta, phi, r_mag
-
-    def track_level_to_vector(self, vector):
-        #pan should match theta angle 
-        #tilt needs to be adjusted so that the camera is level with the horizon
-        #Zoom doesnt matter yet
-        return 
-
-
-    def angle_to_ptz_frame(self, theta, phi):
-        #Pan: 0 = 0 degrees, 1 = 180 degrees, -1 = -180 degrees 
-        #Tilt: 1 = -30, 0 = 30, -1 = 90 degrees
-        #Zoom: 0-1
-
-        #Rescale the theta angle to match the pelco pan range
-        #Assuming 0 is north for now and 180 is south and max is 360 degrees
-        ptz_pan = 0.0
-        
-        if theta > 180.0:
-            ptz_pan = ((theta-360.0)/180.0)
-        elif theta <= 180.0:
-            ptz_pan = (theta / 180.0)s
-
-        #Rescale the phi angle to match the pelco tilt range
-        ptz_tilt = 0.0
-        if phi < -30.0:
-            tilt = 1.0
-        elif phi > 90.0:
-            tilt = -1.0
-        else:
-            if phi <= 30.0:
-                angle = phi - 30.00
-                tilt = -1.0 * (angle / 60.0) 
-            elif phi > 30.0:
-                angle = phi - 30.0
-                tilt = -1.0 * (angle / 60.0)
-        ptz_tilt = tilt
-
-        #Now we need to set the camera to that pan and tilt
-        self.ptz.move_to_absolute(ptz_pan, ptz_tilt, 1.0)
-
-
-        return pan, tilt, zoom
-
-        return None
-
+        return yaw, pitch, roll
 
     def update_loop(self):
-        if self.target is None:
-            #update to keep the camera pointed at the rampage orientation vector and publish state
-            self.track_level_to_vector(self.rampage_orientation_vector)
-            self.update_state()
-            self.state_pub.publish(self.ptz_state)
+        if self.target_position is None:
             return
-        else:
-            target = self.target.copy()
-            if self.target_velocity is not None:
-                target_vel = self.target_velocity.copy()  # Predict 0.5s ahead
-                target += 0.5 * target_vel
 
-            theta, phi, r = compute_vector_spherical(*self.origin, *target)
-            pan = theta / 180.0
-            tilt = 1.0 - phi / 180.0
-            self.ptz.move_to_absolute(pan, tilt, 1.0)
-
-        self.update_state()
-
-        self.state_pub.publish(self.ptz_state)
+        # Track the target using ptzControl
+        self.ptz.track_target(
+            target_position=self.target_position,
+            boat_position=self.boat_position,
+            boat_heading_deg=self.boat_heading,
+            boat_pitch_deg=self.boat_pitch,
+            zoom_percent=10.0  # Example zoom level
+        )
 
 def main(args=None):
     rclpy.init(args=args)
