@@ -300,8 +300,14 @@ class ptzControl(object):
     def track_target(self, target_position, boat_position, boat_heading_deg, boat_pitch_deg, zoom_percent=0.0):
         """
         Track a target by calculating the required pan and tilt angles based on the target's position
-        relative to the camera's position and the boat's heading and pitch. Heading is degrees off north, 
-        and pitch is degrees off level). Can update camera commands at ~2hz max.
+        relative to the camera's position and the boat's heading and pitch. 
+        - can update camera commands at ~2hz max.
+        - target_position: (lat, lon, alt) of the target
+        - boat_position: (lat, lon, alt) of the boat
+        - boat_heading_deg: heading of the boat in degrees (0 = North, increases clockwise)
+        - boat_pitch_deg: pitch of the boat in degrees (positive = bow up, negative = bow down)
+        - zoom_percent: zoom level as a percentage (0-100)
+
         """
         # Calculate relative bearing to target
         pan_angle = self.enu_vector_to_relative_bearing(boat_position, target_position, boat_heading_deg)
