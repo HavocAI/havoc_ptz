@@ -1,5 +1,5 @@
 # HavocOS currently runs on ROS Iron
-FROM ghcr.io/havocai/ros:iron-ros-core-jammy as havocos-builder
+FROM ghcr.io/havocai/ros:iron-ros-core-jammy AS havocos-builder
 
 # Switch to root user to install packages
 USER root
@@ -7,21 +7,28 @@ USER root
 # Set frontend to noninteractive to avoid prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install software-properties-common to manage repositories,
-# then add the PPA for Python 3.8.
-RUN apt-get update && \
-    apt-get install -y software-properties-common && \
-    add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get update
+# Typical shell vars
+SHELL ["/bin/bash", "-c"]
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh
+ENV TERM=xterm-color
 
-# Install Python 3.8 and related tools
-RUN apt-get install -y --no-install-recommends \
-    python3.8 \
-    python3.8-dev \
-    python3.8-distutils \
-    python3-pip \
-    curl && \
-    rm -rf /var/lib/apt/lists/*
+# Setup apt for non-interactive mode. Using ARG here instead of ENV to avoid the
+# variable being persisted in the image.
+ARG DEBIAN_FRONTEND=noninteractive
+RUN echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/00-docker && \
+  echo 'APT::Install-Recommends "0";' >> /etc/apt/apt.conf.d/00-docker && \
+  echo 'APT::Get::Assume-Yes "true";' >> /etc/apt/apt.conf.d/00-docker
+
+# Update ROS keys to latest
+RUN rm /etc/apt/sources.list.d/ros2-latest.list && apt update && apt install curl
+
+RUN echo "deb [arch=amd64,arm64] http://repo.ros2.org/ubuntu/main `lsb_release -cs` main" > /etc/apt/sources.list.d/ros2-latest.list \
+  && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key | apt-key add - \
+  && apt update \
+  && apt install ros2-apt-source \
+  && apt install -y python3-colcon-common-extensions && \
+  rm -rf /var/lib/apt/lists/*
+
 
 RUN apt update && \
     apt install \
@@ -94,7 +101,7 @@ RUN apt update && \
     rm -rf /usr/share/doc
 
 # Configure SSH access to the container
-ENV HAVOC_SSH_PORT 22223
+ENV HAVOC_SSH_PORT=22223
 RUN echo "root:$(echo 'd3JlNGtzCg==' | base64 --decode)" | chpasswd && \
   mkdir -p /run/sshd && \
   rm -rf /etc/update-motd.d/* && \
@@ -103,11 +110,12 @@ RUN echo "root:$(echo 'd3JlNGtzCg==' | base64 --decode)" | chpasswd && \
 
 # Set python3.8 as the default python3
 # Priority 2 makes it the default over the system's python3.10 (priority 1)
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1 && \
-    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 2
+#RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1 && \
+#    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 2
+
 
 # Use curl to get the pip bootstrap script and install pip for Python 3.8
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.8
+# RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.8
 
 # Update ROS keys to latest
 RUN echo "deb [arch=amd64,arm64] http://repo.ros2.org/ubuntu/main `lsb_release -cs` main" > /etc/apt/sources.list.d/ros2-latest.list \
@@ -116,5 +124,35 @@ RUN echo "deb [arch=amd64,arm64] http://repo.ros2.org/ubuntu/main `lsb_release -
   && apt install -y python3-colcon-common-extensions && \
   rm -rf /var/lib/apt/lists/*
 
+
+#################################################################
+#                   CAMERA CONTROL SPECIFIC                     #
+#################################################################
+# Install software-properties-common
+# then add the PPA for Python 3.8.
+RUN apt-get update
+RUN apt-get install -y software-properties-common
+RUN add-apt-repository ppa:deadsnakes/ppa
+RUN apt update
+# Install Python 3.8 and related tools
+RUN apt-get install -y --no-install-recommends \
+    python3.8 \
+    python3.8-dev \
+    python3.8-distutils \
+    python3-pip \
+    curl && \
+    rm -rf /var/lib/apt/lists/*
+# Install onvif_zeep
+RUN python3.8 -m pip install onvif_zeep==0.2.12
+RUN python3.8 -m pip install lxml==5.0.0
+
+# Copy all code to container
+COPY . .
+
+# Make and switch to workdir
+RUN mkdir -p /havoc/periferials
+WORKDIR /havoc/periferials
+
 # Switch back to the default ros user
-USER ros
+# USER ros
+
