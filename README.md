@@ -30,21 +30,6 @@ You can install dependencies using:
 
     pip install onvif_zeep numpy opencv-python
 
-If you're using ROS2 (optional but recommended), also install ROS2 and source your environment:
-
-    source /opt/ros/<your_distro>/setup.bash
-
-**Installation**
-
-Clone or unzip this repository, then navigate to the directory:
-
-    cd havoc_ptz-main
-
-You can optionally build and install the ROS2 package if you're using it:
-
-    colcon build
-    source install/setup.bash
-
 Usage
 -----
 
