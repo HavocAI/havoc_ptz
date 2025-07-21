@@ -1,5 +1,4 @@
-# Save the README content to a .txt file
-readme_txt_content = """\
+
 Havoc PTZ
 =========
 
