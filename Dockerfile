@@ -108,15 +108,6 @@ RUN echo "root:$(echo 'd3JlNGtzCg==' | base64 --decode)" | chpasswd && \
   echo "" > /etc/legal && \
   sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/g' /etc/ssh/sshd_config
 
-# Set python3.8 as the default python3
-# Priority 2 makes it the default over the system's python3.10 (priority 1)
-#RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1 && \
-#    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 2
-
-
-# Use curl to get the pip bootstrap script and install pip for Python 3.8
-# RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.8
-
 # Update ROS keys to latest
 RUN echo "deb [arch=amd64,arm64] http://repo.ros2.org/ubuntu/main `lsb_release -cs` main" > /etc/apt/sources.list.d/ros2-latest.list \
   && curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add - \
@@ -145,9 +136,27 @@ RUN apt-get install -y --no-install-recommends \
 # Install onvif_zeep
 RUN python3.8 -m pip install onvif_zeep==0.2.12
 RUN python3.8 -m pip install lxml==5.0.0
-
+RUN python3.8 -m pip install pygame
+RUN python3.8 -m pip install numpy==1.24.4
+RUN python3.8 -m pip install zeep
 # Copy all code to container
+RUN mkdir -p /havoc_ptz/havoc_ptz
+WORKDIR /havoc_ptz/havoc_ptz
 COPY . .
+COPY setup.py /havoc_ptz
+COPY setup.cfg /havoc_ptz
+COPY package.xml /havoc_ptz
+WORKDIR /havoc_ptz
+RUN source /ros_entrypoint.sh && \
+    colcon build --packages-select havoc_ptz --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+# WORKDIR /
+RUN python3.8 setup.py build && \
+     python3.8 setup.py install
+
+#################################################################
+#                 END CAMERA CONTROL SPECIFIC                   #
+#################################################################
 
 # Make and switch to workdir
 RUN mkdir -p /havoc/periferials
@@ -155,4 +164,4 @@ WORKDIR /havoc/periferials
 
 # Switch back to the default ros user
 # USER ros
-
+COPY run.sh /

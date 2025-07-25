@@ -8,8 +8,8 @@ setup(
     packages=[package_name],
     data_files=[
         ('share/' + package_name, ['package.xml']),
-        ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
-        ('share/' + package_name + '/launch', ['launch/ptz_launch.py']),
+        ('share/ament_index/resource_index/packages', [package_name + '/resource/' + package_name]),
+        ('share/' + package_name + '/launch', [package_name + '/launch/ptz_launch.py']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
