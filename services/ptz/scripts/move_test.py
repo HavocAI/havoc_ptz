@@ -188,7 +188,7 @@ class ptzControl(object):
 
 
 if __name__ == '__main__':
-    IP = "192.168.1.42"  # Camera IP address
+    IP = "192.168.168.106"  # Camera IP address
     PORT = 80  # Port
     USER = "havoc-ptz1"  # Username
     PASS = "1nspectR"  # Password
@@ -201,10 +201,10 @@ if __name__ == '__main__':
     com_tilt = 0.0
     com_zoom = 0.0
 
-    #ptz.move_to_absolute(pan=-1.0, tilt=-0.75, zoom=0.5)
-    #time.sleep(2)  # Wait for the move to complete
-    #ptz.move_to_absolute(pan=1.0, tilt=0.75, zoom=1.0)  # Reset to initial position
-    #time.sleep(2)  # Wait for the move to complete
+    ptz.move_to_absolute(pan=-1.0, tilt=-0.75, zoom=0.5)
+    time.sleep(2)  # Wait for the move to complete
+    ptz.move_to_absolute(pan=1.0, tilt=0.75, zoom=1.0)  # Reset to initial position
+    time.sleep(2)  # Wait for the move to complete
         # # Example usage
     
     pan_speed = 0.0

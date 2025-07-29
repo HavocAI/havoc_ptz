@@ -17,7 +17,7 @@
 # --- Configuration ---
 # Set the source and destination stream URLs here.
 # The source stream with authentication credentials.
-SOURCE_URL="rtsp://havoc-ptz1:1nspectR@192.168.1.42:554/stream1"
+SOURCE_URL="rtsp://havoc-ptz1:1nspectR@192.168.168.106:554/stream1"
 
 # The destination where the stream will be republished.
 DESTINATION_URL="rtmps://media.stg.havocai.net:1936/havoc/vehicle/100/camera/ptz"

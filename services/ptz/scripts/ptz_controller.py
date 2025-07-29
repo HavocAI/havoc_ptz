@@ -4,8 +4,8 @@ from onvif import ONVIFCamera
 from time import sleep
 import time
 
-from sensor_msgs.msg import NavSatFix
-from geometry_msgs.msg import PoseStamped
+# from sensor_msgs.msg import NavSatFix
+# from geometry_msgs.msg import PoseStamped
 
 import pygame
 

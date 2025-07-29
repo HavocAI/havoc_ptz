@@ -1,0 +1,7 @@
+version: "2.0"
+services:
+  ptz_camera:
+    build: services/ptz
+    privileged: true
+    network_mode: host
+    command: tail -f /dev/null # Keep the container alive

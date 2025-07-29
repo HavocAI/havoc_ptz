@@ -134,25 +134,22 @@ RUN apt-get install -y --no-install-recommends \
     curl && \
     rm -rf /var/lib/apt/lists/*
 # Install onvif_zeep
-RUN python3.8 -m pip install onvif_zeep==0.2.12
+RUN python3.8 -m pip install onvif-zeep==0.2.12
 RUN python3.8 -m pip install lxml==5.0.0
 RUN python3.8 -m pip install pygame
 RUN python3.8 -m pip install numpy==1.24.4
 RUN python3.8 -m pip install zeep
 # Copy all code to container
-RUN mkdir -p /havoc_ptz/havoc_ptz
-WORKDIR /havoc_ptz/havoc_ptz
-COPY . .
-COPY setup.py /havoc_ptz
-COPY setup.cfg /havoc_ptz
-COPY package.xml /havoc_ptz
-WORKDIR /havoc_ptz
-RUN source /ros_entrypoint.sh && \
-    colcon build --packages-select havoc_ptz --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+RUN mkdir -p /havoc/ptz 
+COPY . /havoc/ptz
+WORKDIR /havoc/ptz
+RUN source /ros_entrypoint.sh 
+# && \
+    # colcon build --packages-select havoc_ptz --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 # WORKDIR /
-RUN python3.8 setup.py build && \
-     python3.8 setup.py install
+# RUN python3.8 setup.py build && \
+#      python3.8 setup.py install
 
 #################################################################
 #                 END CAMERA CONTROL SPECIFIC                   #
@@ -164,4 +161,5 @@ WORKDIR /havoc/periferials
 
 # Switch back to the default ros user
 # USER ros
-COPY run.sh /
+# COPY run.sh /
+CMD ["/bin/bash", "-c", "/havoc/ptz/utils/run.sh"]
