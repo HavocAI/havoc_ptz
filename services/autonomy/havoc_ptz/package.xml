@@ -1,0 +1,30 @@
+<!-- <?xml version="1.0"?>
+<package format="2">
+  <name>havoc_ptz</name>
+  <version>0.1.0</version>
+  <description>PTZ control node with TF and prediction</description>
+  <maintainer email="you@example.com">Your Name</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+</package> -->
+<?xml version="1.0"?>
+<package format="3">
+  <name>havoc_ptz</name>
+  <version>0.1.0</version>
+  <description>PTZ control node with TF and prediction</description>
+  <maintainer email="engineering@havocai.com">Your Name</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>ament_python</buildtool_depend>
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>builtin_interfaces</depend>
+  <depend>message_generation</depend>
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
