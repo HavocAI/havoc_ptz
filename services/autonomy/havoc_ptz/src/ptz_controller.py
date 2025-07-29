@@ -8,8 +8,6 @@ import numpy as np
 # from sensor_msgs.msg import NavSatFix
 # from geometry_msgs.msg import PoseStamped
 
-import pygame
-
 #import keyboard
 
 class ptzControl(object):
@@ -205,8 +203,8 @@ class ptzControl(object):
         0 = target is straight ahead of the boat heading.
         """
         # Compute ENU vector from boat to target
-        p_boat = geodetic_to_ecef(*boat_pos)
-        p_target = geodetic_to_ecef(*target_pos)
+        p_boat = self.geodetic_to_ecef(*boat_pos)
+        p_target = self.geodetic_to_ecef(*target_pos)
         vec = p_target - p_boat
         lat0, lon0, _ = boat_pos
         lat0 = np.radians(lat0)
@@ -236,8 +234,8 @@ class ptzControl(object):
         alt_diff = target_pos[2] - boat_pos[2]
 
         # Compute ENU vector from boat to target
-        p_boat = geodetic_to_ecef(*boat_pos)
-        p_target = geodetic_to_ecef(*target_pos)
+        p_boat = self.geodetic_to_ecef(*boat_pos)
+        p_target = self.geodetic_to_ecef(*target_pos)
         vec = p_target - p_boat
 
         # Horizontal distance in EN plane
@@ -256,7 +254,7 @@ class ptzControl(object):
 
         # Compensate for boat pitch
         tilt_angle = elevation - boat_pitch_deg
-        print(horiz_dist, alt_diff,elevation, boat_pitch_deg, tilt_angle)
+        # print(horiz_dist, alt_diff,elevation, boat_pitch_deg, tilt_angle)
         return tilt_angle
     
 
@@ -315,12 +313,14 @@ class ptzControl(object):
         
         # calculate directional pitch in the direction of the target
         # angle = pitch * cos(pan_angle) - roll * sin(pan_angle)
-        directional_pitch_rad = -np.radians(boat_pitch_deg) * np.cos(np.radians(pan_angle)) - np.radians(boat_roll_deg) * np.sin(np.radians(pan_angle))
+        directional_pitch_rad = np.radians(boat_pitch_deg) * np.cos(np.radians(pan_angle)) - np.radians(boat_roll_deg) * np.sin(np.radians(pan_angle))
         # Calculate tilt angle to target
         tilt_angle = self.compute_tilt_angle(boat_position, target_position, np.degrees(directional_pitch_rad))
+
+        pan_angle *= -1  # pan is reversed because camera is upside down
 
         ptz_pan, ptz_tilt, ptz_zoom = self.pan_tilt_zoom_angle_to_ptz_frame(pan_angle, tilt_angle, zoom_percent)  # Assuming zoom at 100%
         
         self.move_to_absolute(ptz_pan, ptz_tilt, ptz_zoom)
 
-        return {ptz_pan, ptz_tilt, ptz_zoom, pan_angle, tilt_angle}
+        return (ptz_pan, ptz_tilt, ptz_zoom, pan_angle, tilt_angle)

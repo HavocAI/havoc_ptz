@@ -38,7 +38,7 @@ class PTZNode(Node):
         self.boat_roll = np.degrees(roll)
 
     def quaternion_to_euler(self, x, y, z, w):
-        # Convert quaternion to Euler angles (heading, pitch, roll)
+        # Convert quaternion to NED Euler angles (heading, pitch, roll)
         t0 = +2.0 * (w * x + y * z)
         t1 = +1.0 - 2.0 * (x * x + y * y)
         roll = np.arctan2(t0, t1)
