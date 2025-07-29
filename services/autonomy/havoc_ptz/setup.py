@@ -12,7 +12,7 @@ setup(
     #     ('share/ament_index/resource_index/packages', [package_name]),
     #     ('share/' + package_name + '/launch', ['/launch/ptz_launch.py']),
     # ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'onvif-zeep', 'lxml', 'pygame', 'numpy', 'zeep'],
     zip_safe=True,
     maintainer='Your Name',
     maintainer_email='you@example.com',

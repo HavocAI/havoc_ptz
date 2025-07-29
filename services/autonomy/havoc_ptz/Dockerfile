@@ -133,12 +133,6 @@ RUN apt-get install -y --no-install-recommends \
     python3-pip \
     curl && \
     rm -rf /var/lib/apt/lists/*
-# Install onvif_zeep
-RUN python3.10 -m pip install onvif-zeep==0.2.12
-RUN python3.10 -m pip install lxml==5.0.0
-RUN python3.10 -m pip install pygame
-RUN python3.10 -m pip install numpy==1.24.4
-RUN python3.10 -m pip install zeep
 # Copy all code to container
 RUN mkdir -p /havoc/autonomy/havoc_ptz
 COPY . /havoc/autonomy/havoc_ptz
@@ -156,6 +150,4 @@ RUN source /ros_entrypoint.sh && \
 
 
 # Switch back to the default ros user
-# USER ros
-# COPY run.sh /
-CMD ["/bin/bash", "-c", "/havoc/ptz/utils/run.sh"]
+# CMD ["/bin/bash", "-c", "/havoc/ptz/utils/run.sh"]
