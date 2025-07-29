@@ -4,8 +4,8 @@ from onvif import ONVIFCamera
 from time import sleep
 import time
 
-from sensor_msgs.msg import NavSatFix
-from geometry_msgs.msg import PoseStamped
+# from sensor_msgs.msg import NavSatFix
+# from geometry_msgs.msg import PoseStamped
 
 import pygame
 
@@ -34,13 +34,21 @@ class ptzControl(object):
         # Get available PTZ services
         request = self.ptz.create_type('GetServiceCapabilities')
         Service_Capabilities = self.ptz.GetServiceCapabilities(request)
+        print("service capabilities:")
         print(Service_Capabilities)
+        
+        request = self.ptz.create_type('SendAuxiliaryCommand')
+        request.ProfileToken = token
+        request.AuxiliaryData = 'tt:Wiper|On'
+        # self.ptz.SendAuxiliaryCommand(request)
+
         # Get PTZ status
         status = self.ptz.GetStatus({'ProfileToken': token})
         # Get PTZ configuration options for getting option ranges
         request = self.ptz.create_type('GetConfigurationOptions')
         request.ConfigurationToken = self.media_profile.PTZConfiguration.token
         ptz_configuration_options = self.ptz.GetConfigurationOptions(request)
+        print("PTZ configuration options:")
         print(ptz_configuration_options)
         self.ptz_configuration_options = ptz_configuration_options
         # get continuousMove request -- requestc
@@ -82,15 +90,15 @@ class ptzControl(object):
         self.requestg.ProfileToken = self.media_profile.token
         self.stop()
 
-        self.gps_position = NavSatFix()
-        self.gps_position.latitude = 0.0
-        self.gps_position.longitude = 0.0
-        self.gps_position.altitude = 0.0
-
-        self.target_position = NavSatFix()
-        self.target_position.latitude = 0.0
-        self.target_position.longitude = 0.0
-        self.target_position.altitude = 0.0 
+        # self.gps_position = NavSatFix()
+        # self.gps_position.latitude = 0.0
+        # self.gps_position.longitude = 0.0
+        # self.gps_position.altitude = 0.0
+        #
+        # self.target_position = NavSatFix()
+        # self.target_position.latitude = 0.0
+        # self.target_position.longitude = 0.0
+        # self.target_position.altitude = 0.0 
 
     def get_state(self):
         """Return the current state of the PTZ control."""
@@ -135,7 +143,7 @@ class ptzControl(object):
         self.requesta.Speed.PanTilt.y = 1.0
         self.ptz.Stop({'ProfileToken': self.media_profile.token})  # Stop any ongoing movement
         self.ptz.AbsoluteMove(self.requesta)
-        time.sleep(1)  # Wait for the move to complete
+        # time.sleep(1)  # Wait for the move to complete
 
     def zoom(self, velocity):
         self.requestc.Velocity.Zoom.x = velocity
@@ -201,10 +209,10 @@ if __name__ == '__main__':
     com_tilt = 0.0
     com_zoom = 0.0
 
-    ptz.move_to_absolute(pan=-1.0, tilt=-0.75, zoom=0.5)
-    time.sleep(2)  # Wait for the move to complete
-    ptz.move_to_absolute(pan=1.0, tilt=0.75, zoom=1.0)  # Reset to initial position
-    time.sleep(2)  # Wait for the move to complete
+    # ptz.move_to_absolute(pan=-1.0, tilt=-0.75, zoom=0.5)
+    # time.sleep(2)  # Wait for the move to complete
+    # ptz.move_to_absolute(pan=1.0, tilt=0.75, zoom=1.0)  # Reset to initial position
+    # time.sleep(2)  # Wait for the move to complete
         # # Example usage
     
     pan_speed = 0.0
