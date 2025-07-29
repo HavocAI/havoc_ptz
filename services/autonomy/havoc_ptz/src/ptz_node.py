@@ -12,6 +12,7 @@ class PTZNode(Node):
         self.boat_position = (0.0, 0.0, 0.0)  # (lat, lon, alt)
         self.boat_heading = 0.0  # degrees
         self.boat_pitch = 0.0  # degrees
+        self.boat_roll = 0.0 # degrees
         self.target_position = None  # (lat, lon, alt)
 
         # Subscriptions
@@ -31,9 +32,10 @@ class PTZNode(Node):
     def boat_orientation_callback(self, msg):
         # Convert quaternion to heading and pitch
         q = msg.orientation
-        heading, pitch, _ = self.quaternion_to_euler(q.x, q.y, q.z, q.w)
+        heading, pitch, roll = self.quaternion_to_euler(q.x, q.y, q.z, q.w)
         self.boat_heading = np.degrees(heading)
         self.boat_pitch = np.degrees(pitch)
+        self.boat_roll = np.degrees(roll)
 
     def quaternion_to_euler(self, x, y, z, w):
         # Convert quaternion to Euler angles (heading, pitch, roll)
@@ -62,6 +64,7 @@ class PTZNode(Node):
             boat_position=self.boat_position,
             boat_heading_deg=self.boat_heading,
             boat_pitch_deg=self.boat_pitch,
+            boat_roll_deg=self.boat_roll,
             zoom_percent=10.0  # Example zoom level
         )
 

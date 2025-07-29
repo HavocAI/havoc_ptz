@@ -3,6 +3,7 @@ import sys
 from onvif import ONVIFCamera
 from time import sleep
 import time
+import numpy as np
 
 # from sensor_msgs.msg import NavSatFix
 # from geometry_msgs.msg import PoseStamped
@@ -180,7 +181,7 @@ class ptzControl(object):
         self.requestg.PresetToken = '1'
         self.ptz.GotoPreset(self.requestg)
 
-    def geodetic_to_ecef(lat, lon, alt):
+    def geodetic_to_ecef(self, lat, lon, alt):
         # WGS84 ellipsoid constants:
         a = 6378137.0          # semi-major axis
         e2 = 6.69437999014e-3  # first eccentricity squared
@@ -197,7 +198,7 @@ class ptzControl(object):
         return np.array([x, y, z])
 
 
-    def enu_vector_to_relative_bearing(boat_pos, target_pos, boat_heading_deg):
+    def enu_vector_to_relative_bearing(self, boat_pos, target_pos, boat_heading_deg):
         """
         Returns the angle (degrees) from the boat heading to the target direction in the ENU plane.
         Positive = target is to the right (starboard), negative = left (port).
@@ -221,7 +222,7 @@ class ptzControl(object):
         return rel_angle
 
 
-    def compute_tilt_angle(boat_pos, target_pos, boat_pitch_deg):
+    def compute_tilt_angle(self, boat_pos, target_pos, boat_pitch_deg):
         """
         Computes the tilt angle required to point at the target from the boat, compensating for the boat's pitch.
         - boat_pos: (lat, lon, alt) of the boat
@@ -259,7 +260,7 @@ class ptzControl(object):
         return tilt_angle
     
 
-    def pan_tilt_zoom_angle_to_ptz_frame(pan_deg, tilt_deg, zoom_percent):
+    def pan_tilt_zoom_angle_to_ptz_frame(self, pan_deg, tilt_deg, zoom_percent):
         #Pan: 0 = 0 degrees, 1 = 180 degrees, -1 = -180 degrees 
         #Tilt: 1 = -30, 0 = 30, -1 = 90 degrees
         #Zoom: 0-1
@@ -297,7 +298,7 @@ class ptzControl(object):
 
         return ptz_pan, ptz_tilt, ptz_zoom
 
-    def track_target(self, target_position, boat_position, boat_heading_deg, boat_pitch_deg, zoom_percent=0.0):
+    def track_target(self, target_position, boat_position, boat_heading_deg, boat_pitch_deg, boat_roll_deg, zoom_percent=0.0):
         """
         Track a target by calculating the required pan and tilt angles based on the target's position
         relative to the camera's position and the boat's heading and pitch. 
@@ -312,8 +313,11 @@ class ptzControl(object):
         # Calculate relative bearing to target
         pan_angle = self.enu_vector_to_relative_bearing(boat_position, target_position, boat_heading_deg)
         
+        # calculate directional pitch in the direction of the target
+        # angle = pitch * cos(pan_angle) - roll * sin(pan_angle)
+        directional_pitch_rad = -np.radians(boat_pitch_deg) * np.cos(np.radians(pan_angle)) - np.radians(boat_roll_deg) * np.sin(np.radians(pan_angle))
         # Calculate tilt angle to target
-        tilt_angle = self.compute_tilt_angle(boat_position, target_position, boat_pitch_deg)
+        tilt_angle = self.compute_tilt_angle(boat_position, target_position, np.degrees(directional_pitch_rad))
 
         ptz_pan, ptz_tilt, ptz_zoom = self.pan_tilt_zoom_angle_to_ptz_frame(pan_angle, tilt_angle, zoom_percent)  # Assuming zoom at 100%
         
